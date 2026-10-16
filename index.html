@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Commande bateau</title>
+<style>
+:root{--bg:#e6efe9;--ink:#10303a;--sea:#1f6f78;--buoy:#e4572e;--card:#f7fbf8;--line:#b9cfc6;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0d2128;--ink:#dcebe6;--sea:#5fb5bd;--card:#14313a;--line:#2b4f5a;color-scheme:dark}}
+*{box-sizing:border-box;touch-action:none;-webkit-user-select:none;user-select:none}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Avenir Next","Trebuchet MS",system-ui,sans-serif;
+padding:calc(env(safe-area-inset-top,0px) + 12px) 14px calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-size:1.15rem;margin:0;letter-spacing:.02em}
+#status{flex:1;min-width:0;font-size:.9rem;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status:empty{display:none}
+#trim{display:flex;align-items:center;gap:8px}
+#trim button{padding:8px 12px;font-size:.85rem}
+#tv{min-width:2.4em;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+#seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+#seg button{border-radius:0;background:transparent;color:var(--ink);padding:10px 16px}
+#seg button.on{background:var(--ink);color:var(--bg)}
+#joy{transition:opacity .2s}
+#joy.dim{opacity:.35;pointer-events:none}
+#jtrack{position:relative;height:36px;border-radius:14px;border:1.5px solid var(--line);background:linear-gradient(to right,rgba(214,69,65,.38) 50%,rgba(46,160,90,.38) 50%)}
+#jtrack::before{content:"";position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:var(--line)}
+#jtrack b{position:absolute;top:50%;transform:translateY(-50%);font-size:.7rem;letter-spacing:.08em;opacity:.7;pointer-events:none}
+#jknob{width:24px;height:24px;top:4px;left:calc(50% - 12px);border-radius:50%}
+#rtrack.lock{pointer-events:none}
+#row2{display:flex;gap:16px}
+#apPanel{padding:8px 14px;display:flex;align-items:center;gap:14px;transition:opacity .2s}
+#apPanel b{display:block;font-size:1.5rem;line-height:1.2;text-align:center}
+#apPanel small{display:block;font-size:.7rem;opacity:.7;text-align:center}
+#apPanel button{padding:8px 10px;font-size:.85rem}
+#apBtns{display:flex;gap:6px}
+#apPanel.dim{opacity:.35;pointer-events:none}
+#row2>.panel{min-width:0}
+#joy{flex:.7}
+#joy{padding:10px 14px}
+#trimpanel{flex:1.3;display:flex;align-items:center;justify-content:center;gap:44px;flex-wrap:nowrap}
+#trimpanel button{white-space:nowrap}
+#zero{padding:8px 12px;font-size:.85rem}
+#actions label{margin-left:auto}
+button{font:inherit;border:0;border-radius:12px;padding:12px 16px;background:var(--ink);color:var(--bg);font-weight:600}
+#conn.on{background:var(--sea)}
+.panel{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:14px}
+#readpanel{padding:8px 16px}
+#controls{display:flex;align-items:stretch;gap:16px;width:100%;margin-top:auto}
+#left{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+#actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#rudder{flex:1;display:flex;flex-direction:column;justify-content:center}
+#rudder #rtrack{width:100%}
+#thr{flex:0 0 auto;display:flex;justify-content:center}
+.track{position:relative;background:var(--bg);border:1.5px solid var(--line)}
+#rtrack{height:84px;border-radius:14px;background:linear-gradient(to right,rgba(214,69,65,.38) 50%,rgba(46,160,90,.38) 50%)}
+#rscale{position:relative;height:36px;margin:6px 1.5px 0}
+.rt{position:absolute;top:0;width:2px;height:8px;margin-left:-1px;background:var(--ink);opacity:.5}
+.rt.major{height:14px;opacity:.85}
+.rt span{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:.8rem;font-weight:600;color:var(--ink)}
+#rtrack::before{content:"";position:absolute;left:50%;top:10px;bottom:10px;width:2px;background:var(--line)}
+.knob{position:absolute;background:var(--sea);border-radius:8px;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+#rknob{width:22px;height:64px;top:8px;left:calc(50% - 11px)}
+#ttrack{width:150px;height:clamp(280px,44vh,400px);border-radius:18px}
+.tick{position:absolute;left:46px;right:16px;border-top:2px dotted var(--line);pointer-events:none}
+.tick.zero{border-top:2px solid var(--ink);opacity:.55}
+.tick span{position:absolute;left:-32px;width:26px;text-align:right;top:0;transform:translateY(-50%);line-height:1;font-size:.85rem;font-weight:600;opacity:.75}
+.zone{position:absolute;left:0;right:0;text-align:center;font-size:.7rem;font-weight:700;opacity:.55;pointer-events:none}
+.knob{z-index:2}
+#tknob{width:64px;height:22px;left:calc(50% - 32px);top:calc(50% - 11px);background:var(--buoy)}
+#read{display:flex;gap:22px;text-align:center}
+#read b{display:block;font-size:1.5rem;line-height:1.2}
+#read b.idle{font-size:.95rem;font-weight:600;opacity:.6;line-height:1.8rem}
+#read small{display:block;font-size:.7rem;opacity:.7;margin-top:2px}
+#stop{background:var(--buoy);color:#fff;font-size:1.2rem;padding:14px 40px}
+label{font-size:.85rem;display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <section class="panel dim" id="apPanel">
+    <div><b id="apt">---</b><small>cap visé</small></div>
+    <div id="apBtns"><button id="apM10">−10</button><button id="apM1">−1</button><button id="apP1">+1</button><button id="apP10">+10</button></div>
+    <button id="apCur">Cap actuel</button>
+  </section>
+  <h1>Commande bateau</h1>
+  <section class="panel" id="readpanel">
+    <div id="read">
+      <div><b id="hv">---</b><small>cap</small></div>
+      <div><b id="rv">0°</b><small>barre</small></div>
+      <div><b id="mv" class="idle">Stop</b><small id="mcran">cran 0</small></div>
+    </div>
+  </section>
+</header>
+
+
+
+<div id="controls">
+  <div id="left">
+    <section class="panel" id="actions">
+      <button id="conn">Connecter</button>
+      <div id="status"></div>
+      <div id="seg"><button id="fu" class="on">FU</button><button id="nfu">NFU</button><button id="apmode">AP</button></div>
+      <label><input type="checkbox" id="auto" checked> Barre qui revient au centre</label>
+      <button id="stop">STOP</button>
+    </section>
+    <div id="row2">
+    <section class="panel" id="joy">
+      <div id="jtrack"><b style="left:14px">BÂBORD</b><b style="right:14px">TRIBORD</b><div id="jknob" class="knob"></div></div>
+    </section>
+    <section class="panel" id="trimpanel">
+      <div id="trim"><button id="tm">Trim −</button><span id="tv">0</span><button id="tp">Trim +</button></div>
+      <button id="zero">Barre à zéro</button>
+    </section>
+    </div>
+    <section class="panel" id="rudder">
+      <div id="rtrack" class="track"><div id="rknob" class="knob"></div></div>
+      <div id="rscale"></div>
+    </section>
+  </div>
+  <section class="panel" id="thr">
+    <div id="ttrack" class="track"><div id="tknob" class="knob"></div></div>
+  </section>
+</div>
+
+<script>
+const UART="6e400001-b5a3-f393-e0a9-e50e24dcca9e", RX="6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+TX="6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+const A_MIN=45, A_MAX=135, A_C=90;          // doit correspondre au programme micro:bit
+let angle=A_C, speed=0, trim=0, ch=null, dev=null, busy=false, heading=null, apTarget=0;
+const $=id=>document.getElementById(id);
+
+async function send(s){
+  if(!ch||busy) return; busy=true;
+  try{ await ch.writeValueWithoutResponse(new TextEncoder().encode(s+"\n")); }catch(e){ $("status").textContent="Envoi échoué : "+e.message; }
+  busy=false;
+}
+const push=()=>send(mode==="AP" ? `P${Math.round(apTarget)},${Math.round(speed)},${trim}` : `C${Math.round(angle+trim)},${Math.round(speed)}`);   // le trim n'est ajouté qu'à l'ordre envoyé au servo
+setInterval(()=>{ if(ch) push(); },400);       // signal de vie (sécurité côté micro:bit)
+
+let level=0;   // cran moteur : -10 (arrière) … 0 … +10 (avant), par pas de 2
+function ui(){
+  const rel=Math.round(angle-A_C);   // affichage : 0° au centre, négatif à gauche, positif à droite
+  $("rv").textContent=(rel>0?"+":"")+rel+"°";
+  $("mv").textContent = level>0 ? "Avant" : level<0 ? "Arrière" : "Stop";
+  $("mv").classList.toggle("idle", level===0);
+  $("mcran").textContent = level===0 ? "cran 0" : `cran ${Math.abs(level)} · ${Math.abs(level)*10} %`;
+}
+// Graduations pointillées (position alignée sur le centre du bouton)
+(function(){
+  const tr=$("ttrack");
+  for(let k=5;k>=-5;k--){
+    const t=.5+k/10, d=document.createElement("div");
+    d.className="tick"+(k===0?" zero":"");
+    d.style.top=`calc(11px + ${1-t} * (100% - 22px))`;
+    d.innerHTML=`<span>${Math.abs(2*k)}</span>`;
+    tr.appendChild(d);
+  }
+  // Graduations de la barre : tous les 5°, de 45° bâbord à 45° tribord
+  const sc=$("rscale");
+  for(let i=0;i<=18;i++){
+    const rel=(i-9)*5, d=document.createElement("div");
+    d.className="rt"+(rel%15===0?" major":"");
+    d.style.left=`calc(11px + ${i/18} * (100% - 22px))`;
+    if(rel%15===0) d.innerHTML=`<span>${rel>0?"+":""}${rel}°</span>`;
+    sc.appendChild(d);
+  }
+})();
+
+function drag(track,knob,axis,onMove,onEnd){
+  const move=e=>{ const r=track.getBoundingClientRect();
+    let t = axis==="x" ? (e.clientX-r.left-11)/(r.width-22) : 1-(e.clientY-r.top-11)/(r.height-22);
+    t=Math.max(0,Math.min(1,t)); onMove(t); };
+  track.addEventListener("pointerdown",e=>{ track.setPointerCapture(e.pointerId); move(e); });
+  track.addEventListener("pointermove",e=>{ if(track.hasPointerCapture(e.pointerId)) move(e); });
+  track.addEventListener("pointerup",e=>{ onEnd&&onEnd(); });
+}
+function setRudder(t,q){ angle=A_MIN+t*(A_MAX-A_MIN);
+  $("rknob").style.left=`calc(${t*100}% - ${t*22}px)`; ui(); if(!q) push(); }
+function setThrottle(t){
+  const k=Math.round((t-.5)*10);            // 11 crans : -5 … +5
+  level=2*k; speed=level*10; t=.5+k/10;     // cran 10 = 100 %
+  $("tknob").style.top=`calc(${(1-t)*100}% - ${(1-t)*22}px)`; ui(); push(); }
+
+drag($("rtrack"),$("rknob"),"x",setRudder,()=>{ if($("auto").checked) setRudder(.5); });
+drag($("ttrack"),$("tknob"),"y",setThrottle);
+$("stop").onclick=()=>{ if(mode==="AP") setMode("FU"); setThrottle(.5); setRudder(.5); send("X"); };
+const setTrim=d=>{ trim+=d; $("tv").textContent=(trim>0?"+":"")+trim; push(); };
+$("tm").onclick=()=>setTrim(-1);
+$("tp").onclick=()=>setTrim(1);
+$("zero").onclick=()=>setRudder(.5);   // curseur à 0° (servo à 90° + trim, le trim reste appliqué)
+
+// ---- Mode FU (follow-up : la barre suit le curseur) / NFU (le joystick commande la vitesse de mouvement, la barre reste où elle est au relâchement)
+let mode="FU", joy=0;
+const JW=24, RATE=25;   // RATE : vitesse max de la barre en NFU (°/s), à ajuster
+function setJoy(v){ joy=Math.abs(v)<.08?0:v; $("jknob").style.left=`calc(${(v+1)/2*100}% - ${(v+1)/2*JW}px)`; }
+(function(){
+  const tr=$("jtrack");
+  const mv=e=>{ const r=tr.getBoundingClientRect(); setJoy(Math.max(-1,Math.min(1,((e.clientX-r.left-JW/2)/(r.width-JW))*2-1))); };
+  tr.addEventListener("pointerdown",e=>{ tr.setPointerCapture(e.pointerId); mv(e); });
+  tr.addEventListener("pointermove",e=>{ if(tr.hasPointerCapture(e.pointerId)) mv(e); });
+  ["pointerup","pointercancel"].forEach(ev=>tr.addEventListener(ev,()=>setJoy(0)));
+})();
+document.addEventListener("visibilitychange",()=>setJoy(0));
+let lastT=performance.now();
+setInterval(()=>{
+  const n=performance.now(), dt=(n-lastT)/1000; lastT=n;
+  if(mode==="NFU" && joy!==0){
+    const a=Math.max(A_MIN,Math.min(A_MAX,angle+joy*RATE*dt));
+    if(a!==angle) setRudder((a-A_MIN)/(A_MAX-A_MIN));
+  }
+},80);
+function setMode(m){
+  if(m==="AP"){
+    if(heading===null){ flash("Cap indisponible : connecter le micro:bit"); return; }
+    apTarget=heading; updAP();
+  }
+  mode=m; setJoy(0);
+  $("fu").classList.toggle("on",m==="FU"); $("nfu").classList.toggle("on",m==="NFU"); $("apmode").classList.toggle("on",m==="AP");
+  $("joy").classList.toggle("dim",m!=="NFU"); $("apPanel").classList.toggle("dim",m!=="AP");
+  $("rtrack").classList.toggle("lock",m!=="FU");
+  push();
+}
+
+// ---- Cap (boussole du micro:bit) et autopilote
+function flash(t){ $("status").textContent=t; setTimeout(()=>{ if($("status").textContent===t) $("status").textContent=""; },3000); }
+function updAP(){ $("apt").textContent=String(apTarget).padStart(3,"0")+"°"; }
+function adjAP(d){ apTarget=(apTarget+d+360)%360; updAP(); push(); }
+$("apM10").onclick=()=>adjAP(-10); $("apM1").onclick=()=>adjAP(-1);
+$("apP1").onclick=()=>adjAP(1);   $("apP10").onclick=()=>adjAP(10);
+$("apCur").onclick=()=>{ if(heading!==null){ apTarget=heading; updAP(); push(); } };
+let rxBuf="";
+function onRx(ev){
+  rxBuf+=new TextDecoder().decode(ev.target.value);
+  let i;
+  while((i=rxBuf.indexOf("\n"))>=0){
+    const line=rxBuf.slice(0,i).trim(); rxBuf=rxBuf.slice(i+1);
+    if(line[0]!=="H") continue;
+    const p=line.slice(1).split(","), h=parseInt(p[0]), r=parseInt(p[1]);
+    if(!isNaN(h)){ heading=h; $("hv").textContent=String(h).padStart(3,"0")+"°"; }
+    if(mode==="AP" && !isNaN(r)) setRudder((A_C+Math.max(-45,Math.min(45,r))-A_MIN)/(A_MAX-A_MIN),true);
+  }
+}
+$("fu").onclick=()=>setMode("FU"); $("nfu").onclick=()=>setMode("NFU"); $("apmode").onclick=()=>setMode("AP"); setMode("FU");
+
+$("conn").onclick=async()=>{
+  if(ch){ dev.gatt.disconnect(); return; }
+  try{
+    dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"BBC micro:bit"}],optionalServices:[UART]});
+    dev.addEventListener("gattserverdisconnected",()=>{ ch=null; heading=null; $("hv").textContent="---"; if(mode==="AP") setMode("FU"); $("status").textContent=""; $("conn").textContent="Connecter"; $("conn").classList.remove("on"); });
+    $("status").textContent=""; $("conn").textContent="Connexion…";
+    const srv=await dev.gatt.connect(), svc=await srv.getPrimaryService(UART);
+    ch=await svc.getCharacteristic(RX);
+    const tx=await svc.getCharacteristic(TX); await tx.startNotifications(); tx.addEventListener("characteristicvaluechanged",onRx);
+    $("status").textContent=""; $("conn").textContent="Déconnecter"; $("conn").classList.add("on");
+    push();
+  }catch(e){ $("status").textContent="Échec : "+e.message; $("conn").textContent="Connecter"; }
+};
+if(!navigator.bluetooth) $("status").textContent="Web Bluetooth indisponible ici";
+</script>
+</body>
+</html>
