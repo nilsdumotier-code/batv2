@@ -35,6 +35,8 @@ h1{font-size:1.15rem;margin:0;letter-spacing:.02em}
 #apPanel button{padding:8px 10px;font-size:.85rem}
 #apBtns{display:flex;gap:6px}
 #apPanel.dim{opacity:.35;pointer-events:none}
+#dbg{margin:0;font:12px/1.5 ui-monospace,Menlo,monospace;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;white-space:pre-wrap}
+#dbg[hidden]{display:none}
 #row2>.panel{min-width:0}
 #joy{flex:.7}
 #joy{padding:10px 14px}
@@ -92,6 +94,7 @@ label{font-size:.85rem;display:flex;gap:8px;align-items:center}
     </div>
   </section>
 </header>
+<pre id="dbg" hidden></pre>
 
 
 
@@ -127,13 +130,24 @@ label{font-size:.85rem;display:flex;gap:8px;align-items:center}
 const UART="6e400001-b5a3-f393-e0a9-e50e24dcca9e", RX="6e400002-b5a3-f393-e0a9-e50e24dcca9e",
 TX="6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 const A_MIN=45, A_MAX=135, A_C=90;          // doit correspondre au programme micro:bit
-let angle=A_C, speed=0, trim=0, ch=null, dev=null, busy=false, heading=null, apTarget=0;
+let angle=A_C, speed=0, trim=0, ch=null, dev=null, busy=false, heading=null, apTarget=0, busyT=0;
+const D={steps:"",tx:"",txn:0,rx:"",rxn:0,err:""};   // diagnostic : toucher le titre pour l'afficher
+function dbg(){ $("dbg").textContent=`${D.steps}\nenvoyé : ${D.txn} · ${D.tx}\nreçu : ${D.rxn} · ${D.rx}\n${D.err}`; }
 const $=id=>document.getElementById(id);
 
 async function send(s){
-  if(!ch||busy) return; busy=true;
-  try{ await ch.writeValueWithoutResponse(new TextEncoder().encode(s+"\n")); }catch(e){ $("status").textContent="Envoi échoué : "+e.message; }
-  busy=false;
+  if(!ch) return;
+  if(busy && Date.now()-busyT<500) return;
+  busy=true; busyT=Date.now();
+  const data=new TextEncoder().encode(s+"\n");
+  try{
+    if(ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(data); else await ch.writeValue(data);
+    D.tx=s; D.txn++;
+  }catch(e){
+    try{ await ch.writeValue(data); D.tx=s+" (avec réponse)"; D.txn++; }
+    catch(e2){ D.err="envoi : "+e2.message; flash("Envoi échoué : "+e2.message); }
+  }
+  busy=false; dbg();
 }
 const push=()=>send(mode==="AP" ? `P${Math.round(apTarget)},${Math.round(speed)},${trim}` : `C${Math.round(angle+trim)},${Math.round(speed)}`);   // le trim n'est ajouté qu'à l'ordre envoyé au servo
 setInterval(()=>{ if(ch) push(); },400);       // signal de vie (sécurité côté micro:bit)
@@ -231,7 +245,8 @@ $("apP1").onclick=()=>adjAP(1);   $("apP10").onclick=()=>adjAP(10);
 $("apCur").onclick=()=>{ if(heading!==null){ apTarget=heading; updAP(); push(); } };
 let rxBuf="";
 function onRx(ev){
-  rxBuf+=new TextDecoder().decode(ev.target.value);
+  const chunk=new TextDecoder().decode(ev.target.value); D.rxn++; D.rx=chunk.trim(); dbg();
+  rxBuf+=chunk;
   let i;
   while((i=rxBuf.indexOf("\n"))>=0){
     const line=rxBuf.slice(0,i).trim(); rxBuf=rxBuf.slice(i+1);
@@ -242,6 +257,7 @@ function onRx(ev){
   }
 }
 $("fu").onclick=()=>setMode("FU"); $("nfu").onclick=()=>setMode("NFU"); $("apmode").onclick=()=>setMode("AP"); setMode("FU");
+document.querySelector("h1").onclick=()=>{ const d=$("dbg"); d.hidden=!d.hidden; dbg(); };
 
 $("conn").onclick=async()=>{
   if(ch){ dev.gatt.disconnect(); return; }
@@ -251,7 +267,9 @@ $("conn").onclick=async()=>{
     $("status").textContent=""; $("conn").textContent="Connexion…";
     const srv=await dev.gatt.connect(), svc=await srv.getPrimaryService(UART);
     ch=await svc.getCharacteristic(RX);
-    const tx=await svc.getCharacteristic(TX); await tx.startNotifications(); tx.addEventListener("characteristicvaluechanged",onRx);
+    try{ const tx=await svc.getCharacteristic(TX); await tx.startNotifications(); tx.addEventListener("characteristicvaluechanged",onRx); D.steps="service OK · écriture OK · notifications OK"; }
+    catch(e){ D.steps="service OK · écriture OK · notifications ÉCHEC"; D.err="notifications : "+e.message; }
+    dbg();
     $("status").textContent=""; $("conn").textContent="Déconnecter"; $("conn").classList.add("on");
     push();
   }catch(e){ $("status").textContent="Échec : "+e.message; $("conn").textContent="Connecter"; }
