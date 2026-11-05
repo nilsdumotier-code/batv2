@@ -141,10 +141,10 @@ async function send(s){
   busy=true; busyT=Date.now();
   const data=new TextEncoder().encode(s+"\n");
   try{
-    if(ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(data); else await ch.writeValue(data);
-    D.tx=s; D.txn++;
+    await ch.writeValue(data);
+    D.tx=s+" (avec réponse)"; D.txn++;
   }catch(e){
-    try{ await ch.writeValue(data); D.tx=s+" (avec réponse)"; D.txn++; }
+    try{ await ch.writeValueWithoutResponse(data); D.tx=s+" (sans réponse)"; D.txn++; D.err="écriture avec réponse refusée : "+e.message; }
     catch(e2){ D.err="envoi : "+e2.message; flash("Envoi échoué : "+e2.message); }
   }
   busy=false; dbg();
